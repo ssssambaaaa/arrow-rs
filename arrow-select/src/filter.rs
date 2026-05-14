@@ -627,7 +627,19 @@ where
     {
         let num_offsets_bytes = (capacity + 1) * std::mem::size_of::<OffsetSize>();
         let mut dst_offsets = MutableBuffer::new(num_offsets_bytes);
-        let dst_values = MutableBuffer::new(0);
+
+        // Estimate output values capacity based on average value length.
+        // This avoids repeated reallocations of the values buffer during filtering.
+        let num_rows = array.len();
+        let estimated_values_capacity = if num_rows > 0 {
+            let total_data_len = array.value_data().len();
+            // Use integer arithmetic to avoid overflow: total_data_len * capacity / num_rows
+            (total_data_len / num_rows) * capacity
+        } else {
+            0
+        };
+        let dst_values = MutableBuffer::new(estimated_values_capacity);
+
         let cur_offset = OffsetSize::from_usize(0).unwrap();
         dst_offsets.push(cur_offset);
 
